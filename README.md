@@ -27,6 +27,7 @@ We are goigng with Snapshot restore:
 - Push the changes, it will create new cluster with v3 engine.
 - Test the accessibility, as this is the copy of existing cluster - try to use existing login creds and make sure its accessible.
 - After everything is validated and fine the proceed with Post deployment steps
+  
 **Post Deployment Steps:**
     Let V2 cluster name : myaurora
     Let V3 cluster name : myaurorav3
