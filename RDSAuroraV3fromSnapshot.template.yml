@@ -1,0 +1,438 @@
+#Aurora V3 via Secrets & Health Checks
+"Parameters":
+  "AuroraFamily":
+    "Default": "aurora-mysql8.0"
+    "AllowedValues":
+      - "aurora-mysql8.0"
+      - "aurora-postgresql9.6"
+    Type: "String"
+  "AuroraEngines":
+    "Default": "aurora-mysql"
+    "AllowedValues":
+      - "aurora"
+      - "aurora-mysql"
+      - "aurora-postgresql"
+    "Type": "String"
+  "AuroraInstanceClass":
+    "Description": "The instance type of database server"
+    "Default": "db.t3.medium"
+    "AllowedValues":
+      - "db.t2.small"
+      - "db.t3.small"
+      - "db.t3.medium"
+      - "db.r3.large"
+      - "db.r4.large"
+      - "db.r4.xlarge"
+    "Type": "String"
+"Resources":
+  "ClusterParameterGroupAurora":
+    "Properties":
+      "Description": "pgcluster-auroramysql"
+      "Family":
+        "Ref": "AuroraFamily"
+      "Parameters":
+        "server_audit_events": 'CONNECT,QUERY_DCL,QUERY_DDL,QUERY_DML'
+        "server_audit_logging": '1'
+        "server_audit_logs_upload": '1'
+        #"server_audit_incl_users": '<userids>'
+    "DependsOn":
+      - "DBSubnetGroupAurora"
+    "Type": "AWS::RDS::DBClusterParameterGroup"
+  "DBParameterGroupAurora":
+    "Properties":
+      "Description": "pgdb-auroramysql"
+      "Family":
+        "Ref": "AuroraFamily"
+    "DependsOn":
+      - "ClusterParameterGroupAurora"
+    "Type": "AWS::RDS::DBParameterGroup"
+
+  "DBSubnetGroupAurora":
+    "Properties":
+      "DBSubnetGroupDescription": "subnetgroup-aurora"
+      "DBSubnetGroupName": "subnetgrp-aurora"
+      "SubnetIds":
+        - "Fn::ImportValue": "PrivateSubnet01"
+        - "Fn::ImportValue": "PrivateSubnet02"
+        - "Fn::ImportValue": "PrivateSubnet03"
+    "Type": "AWS::RDS::DBSubnetGroup"
+
+  "EC2SecurityGroupAurora":
+    "Properties":
+      "VpcId":
+        "Fn::ImportValue": "VPC"
+      "GroupDescription": "Allow EC2 access to RDS Aurora"
+      "SecurityGroupIngress":
+        - "IpProtocol": "tcp"
+          "FromPort": "8192"
+          "ToPort": "8192"
+          "CidrIp": "<cidr>/16"
+    "DependsOn":
+      - "DBSubnetGroupAurora"
+    "Type": "AWS::EC2::SecurityGroup"
+
+  "auroraClusterResource":
+    "Properties":
+      "DBClusterIdentifier": "{{resolve:secretsmanager:sm-AuroraRDS:SecretString:clustername}}"
+      "DBClusterParameterGroupName":
+        "Ref": "ClusterParameterGroupAurora"
+      "DatabaseName": '{{resolve:secretsmanager:sm-AuroraRDS:SecretString:databasename}}'
+      "DBSubnetGroupName":
+        "Ref": "DBSubnetGroupAurora"
+      "Engine":
+        "Ref": "AuroraEngines"
+      "EngineVersion": "8.0"
+      #"MasterUsername": '{{resolve:secretsmanager:sm-AuroraRDS:SecretString:clustermid}}'
+      #"MasterUserPassword": '{{resolve:secretsmanager:sm-AuroraRDS:SecretString:clustermcred}}'
+      "Port": "8192"
+      "BackupRetentionPeriod": "7"
+      "SnapshotIdentifier": "<name of the manual snapshot / arn of the manual snapshot>"
+      #If you specify the SnapshotIdentifier property to restore RDS Aurora from an existing DB cluster then don't specify the following properties - https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-snapshotidentifier
+      #"StorageEncrypted": "True"
+      "VpcSecurityGroupIds":
+        - "Ref": "EC2SecurityGroupAurora"
+      "Tags":
+        - "Key": "Name"
+          "Value": "RDS_AuroraV3_Cluster"
+    "DependsOn":
+      - "ClusterParameterGroupAurora"
+      - "DBParameterGroupAurora"
+      - "DBSubnetGroupAurora"
+    "Type": "AWS::RDS::DBCluster"
+
+  "RDSAuroraDBInstance1":
+    "Properties":
+      "DBClusterIdentifier":
+        "Ref": "auroraClusterResource"
+      "DBInstanceClass":
+        "Ref": "AuroraInstanceClass"
+      "DBParameterGroupName":
+        "Ref": "DBParameterGroupAurora"
+      "DBSubnetGroupName":
+        "Ref": "DBSubnetGroupAurora"
+      "Engine":
+        "Ref": "AuroraEngines"
+      "PubliclyAccessible": "false"
+      "Tags":
+        - "Key": "Name"
+          "Value": "RDS_AuroraV3_DB"
+    "DependsOn":
+      - "auroraClusterResource"
+    "Type": "AWS::RDS::DBInstance"
+  "RDSAuroraDBInstance2":
+    "Properties":
+      "DBClusterIdentifier":
+        "Ref": "auroraClusterResource"
+      "DBInstanceClass":
+        "Ref": "AuroraInstanceClass"
+      "DBParameterGroupName":
+        "Ref": "DBParameterGroupAurora"
+      "DBSubnetGroupName":
+        "Ref": "DBSubnetGroupAurora"
+      "Engine":
+        "Ref": "AuroraEngines"
+      "PubliclyAccessible": "false"
+      "Tags":
+        - "Key": "Name"
+          "Value": "RDS_AuroraV3_DB"
+    "DependsOn":
+      - "auroraClusterResource"
+      - "RDSAuroraDBInstance1"
+    "Type": "AWS::RDS::DBInstance"
+  "RDSAuroraDBInstance3":
+    "Properties":
+      "DBClusterIdentifier":
+        "Ref": "auroraClusterResource"
+      "DBInstanceClass":
+        "Ref": "AuroraInstanceClass"
+      "DBParameterGroupName":
+        "Ref": "DBParameterGroupAurora"
+      "DBSubnetGroupName":
+        "Ref": "DBSubnetGroupAurora"
+      "Engine":
+        "Ref": "AuroraEngines"
+      "PubliclyAccessible": "false"
+      "Tags":
+        - "Key": "Name"
+          "Value": "RDS_AuroraV3_DB"
+    "DependsOn":
+      - "auroraClusterResource"
+      - "RDSAuroraDBInstance1"
+      - "RDSAuroraDBInstance2"
+    "Type": "AWS::RDS::DBInstance"
+
+# SNS Topic for notifations part
+  "RDSTopic":
+    "Properties":
+      "DisplayName": "Health Checks for Aurora V3"
+      "TopicName": "AuroraRDS-Health"
+      "Subscription":
+        - "Endpoint": "<emailID>"
+          "Protocol": "email"
+    "DependsOn":
+      - "auroraClusterResource"
+      - "RDSAuroraDBInstance1"
+      - "RDSAuroraDBInstance2"
+      - "RDSAuroraDBInstance3"
+    "Type": "AWS::SNS::Topic"
+
+  "AlarmRDSCPUHighUtilization1":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when CPU utilization crosses 75% and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-HighCPU1"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance1"
+      "EvaluationPeriods": "3"
+      "MetricName": "CPUUtilization"
+      "Namespace": "AWS/RDS"
+      "Period": "120"
+      "Statistic": "Average"
+      "Threshold": "75"
+      "Unit": "Percent"
+    "DependsOn":
+     - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+  "AlarmRDSCPUHighUtilization2":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when CPU utilization crosses 75% and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-HighCPU2"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance2"
+      "EvaluationPeriods": "3"
+      "MetricName": "CPUUtilization"
+      "Namespace": "AWS/RDS"
+      "Period": "120"
+      "Statistic": "Average"
+      "Threshold": "75"
+      "Unit": "Percent"
+    "DependsOn":
+     - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+  "AlarmRDSCPUHighUtilization3":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when CPU utilization crosses 75% and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-HighCPU3"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanOrEqualToThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance3"
+      "EvaluationPeriods": "3"
+      "MetricName": "CPUUtilization"
+      "Namespace": "AWS/RDS"
+      "Period": "120"
+      "Statistic": "Average"
+      "Threshold": "75"
+      "Unit": "Percent"
+    "DependsOn":
+     - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+  "AlarmRDSFreeableMemory1":
+    "Type": "AWS::CloudWatch::Alarm"
+    "Properties":
+      "AlarmDescription": "Triggers an alarm when Freeable Memory threshold reaches under 700MB and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-FreeableMemory1"
+          - "Fn::ImportValue": "Stage"
+      "Namespace": "AWS/RDS"
+      "MetricName": "FreeableMemory"
+      "Unit": "Bytes"
+      "Statistic": "Average"
+      "Period": "300"
+      "EvaluationPeriods": "2"
+      "Threshold": "700000000"
+      "ComparisonOperator": "LessThanOrEqualToThreshold"
+      "Dimensions":
+        - "Name": "DBInstanceIdentifier"
+          "Value":
+            "Ref": "RDSAuroraDBInstance1"
+      "AlarmActions":
+        - "Ref": "RDSTopic"
+  "AlarmRDSFreeableMemory1":
+    "Type": "AWS::CloudWatch::Alarm"
+    "Properties":
+      "AlarmDescription": "Triggers an alarm when Freeable Memory threshold reaches under 700MB and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-FreeableMemory1"
+          - "Fn::ImportValue": "Stage"
+      "Namespace": "AWS/RDS"
+      "MetricName": "FreeableMemory"
+      "Unit": "Bytes"
+      "Statistic": "Average"
+      "Period": "300"
+      "EvaluationPeriods": "2"
+      "Threshold": "700000000"
+      "ComparisonOperator": "LessThanOrEqualToThreshold"
+      "Dimensions":
+        - "Name": "DBInstanceIdentifier"
+          "Value":
+            "Ref": "RDSAuroraDBInstance1"
+      "AlarmActions":
+        - "Ref": "RDSTopic"
+  "AlarmRDSFreeableMemory2":
+    "Type": "AWS::CloudWatch::Alarm"
+    "Properties":
+      "AlarmDescription": "Triggers an alarm when Freeable Memory threshold reaches under 700MB and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-FreeableMemory2"
+          - "Fn::ImportValue": "Stage"
+      "Namespace": "AWS/RDS"
+      "MetricName": "FreeableMemory"
+      "Unit": "Bytes"
+      "Statistic": "Average"
+      "Period": "300"
+      "EvaluationPeriods": "2"
+      "Threshold": "700000000"
+      "ComparisonOperator": "LessThanOrEqualToThreshold"
+      "Dimensions":
+        - "Name": "DBInstanceIdentifier"
+          "Value":
+            "Ref": "RDSAuroraDBInstance2"
+      "AlarmActions":
+        - "Ref": "RDSTopic"
+  "AlarmRDSFreeableMemory3":
+    "Type": "AWS::CloudWatch::Alarm"
+    "Properties":
+      "AlarmDescription": "Triggers an alarm when Freeable Memory threshold reaches under 700MB and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-FreeableMemory3"
+          - "Fn::ImportValue": "Stage"
+      "Namespace": "AWS/RDS"
+      "MetricName": "FreeableMemory"
+      "Unit": "Bytes"
+      "Statistic": "Average"
+      "Period": "300"
+      "EvaluationPeriods": "2"
+      "Threshold": "700000000"
+      "ComparisonOperator": "LessThanOrEqualToThreshold"
+      "Dimensions":
+        - "Name": "DBInstanceIdentifier"
+          "Value":
+            "Ref": "RDSAuroraDBInstance3"
+      "AlarmActions":
+        - "Ref": "RDSTopic"
+  "AlarmRDSReplicaLag1":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when Aurora Replica lag is above 2 seconds and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-ReplicaLag1"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance1"
+      "EvaluationPeriods": "3"
+      "MetricName": "AuroraReplicaLag"
+      "Namespace": "AWS/RDS"
+      "Period": "300"
+      "Statistic": "Average"
+      "Threshold": "2000"
+      "Unit": "Milliseconds"
+    "DependsOn":
+      - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+  "AlarmRDSReplicaLag2":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when Aurora Replica lag is above 2 seconds and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-ReplicaLag2"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance2"
+      "EvaluationPeriods": "3"
+      "MetricName": "AuroraReplicaLag"
+      "Namespace": "AWS/RDS"
+      "Period": "300"
+      "Statistic": "Average"
+      "Threshold": "2000"
+      "Unit": "Milliseconds"
+    "DependsOn":
+      - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+  "AlarmRDSReplicaLag3":
+    "Properties":
+      "AlarmActions":
+      - "Ref": "RDSTopic"
+      "AlarmDescription": "Triggers an alarm when Aurora Replica lag is above 2 seconds and notifies DevOps team."
+      "AlarmName":
+        "Fn::Join":
+        - "-"
+        - - "Aurora-ReplicaLag3"
+          - "Fn::ImportValue": "Stage"
+      "ComparisonOperator": "GreaterThanThreshold"
+      "Dimensions":
+      - "Name": "DBInstanceIdentifier"
+        "Value":
+          "Ref": "RDSAuroraDBInstance3"
+      "EvaluationPeriods": "3"
+      "MetricName": "AuroraReplicaLag"
+      "Namespace": "AWS/RDS"
+      "Period": "300"
+      "Statistic": "Average"
+      "Threshold": "2000"
+      "Unit": "Milliseconds"
+    "DependsOn":
+      - "RDSTopic"
+    "Type": "AWS::CloudWatch::Alarm"
+
+#Subscribe to RDS Events
+  "AlarmRDSEvents":
+    "Properties":
+      "Enabled": "true"
+      "EventCategories":
+        - "notification"
+        - "failover"
+        - "maintenance"
+      "SnsTopicArn":
+        "Ref": "RDSTopic"
+      "SourceIds":
+        - "Ref": "auroraClusterResource"
+      "SourceType": "db-cluster"
+    "DependsOn":
+      - "RDSTopic"
+      - "auroraClusterResource"
+    "Type": "AWS::RDS::EventSubscription"
